@@ -25,6 +25,18 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
   };
 }
 
+function createDeferred<T>() {
+  let resolve!: (value: T | PromiseLike<T>) => void;
+  let reject!: (reason?: unknown) => void;
+
+  const promise = new Promise<T>((nextResolve, nextReject) => {
+    resolve = nextResolve;
+    reject = nextReject;
+  });
+
+  return { promise, resolve, reject };
+}
+
 describe("createTaskStore", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -108,5 +120,132 @@ describe("createTaskStore", () => {
     snapshot.push(createTask({ id: "task-3" }));
 
     expect(store.getSnapshot()).toEqual([hydratedTask]);
+  });
+
+  it("keeps the committed snapshot when persistence rejects a write", async () => {
+    const initialTask = createTask();
+    const nextTask = createTask({ id: "task-2" });
+    const storage = {
+      loadTasks: vi.fn(async () => [initialTask]),
+      saveTasks: vi
+        .fn<(_: TaskRecord[]) => Promise<void>>()
+        .mockRejectedValueOnce(new Error("add failed"))
+        .mockRejectedValueOnce(new Error("update failed"))
+        .mockRejectedValueOnce(new Error("replace failed"))
+    };
+
+    const store = createTaskStore(storage);
+    await store.hydrate();
+
+    await expect(store.addMany([nextTask])).rejects.toThrow("add failed");
+    expect(store.getSnapshot()).toEqual([initialTask]);
+
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
+
+    await expect(
+      store.update(initialTask.id, {
+        state: "queued"
+      })
+    ).rejects.toThrow("update failed");
+    expect(store.getSnapshot()).toEqual([initialTask]);
+
+    await expect(store.replaceAll([nextTask])).rejects.toThrow("replace failed");
+    expect(store.getSnapshot()).toEqual([initialTask]);
+  });
+
+  it("serializes overlapping writes so later mutations wait for committed state", async () => {
+    const initialTask = createTask();
+    const appendedTask = createTask({
+      id: "task-2",
+      sourceUrl: "https://video.example.com/queued.webm",
+      directMediaType: "webm"
+    });
+    const firstSave = createDeferred<void>();
+    const secondSave = createDeferred<void>();
+    const saveTasks = vi
+      .fn<(_: TaskRecord[]) => Promise<void>>()
+      .mockImplementationOnce(async () => firstSave.promise)
+      .mockImplementationOnce(async () => secondSave.promise);
+    const storage = {
+      loadTasks: vi.fn(async () => [initialTask]),
+      saveTasks
+    };
+
+    const store = createTaskStore(storage);
+    await store.hydrate();
+
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
+
+    const addPromise = store.addMany([appendedTask]);
+    const updatePromise = store.update(appendedTask.id, {
+      state: "queued"
+    });
+
+    await Promise.resolve();
+
+    expect(saveTasks).toHaveBeenCalledTimes(1);
+    expect(saveTasks).toHaveBeenNthCalledWith(1, [initialTask, appendedTask]);
+
+    firstSave.resolve();
+    await addPromise;
+    await Promise.resolve();
+
+    expect(saveTasks).toHaveBeenCalledTimes(2);
+    expect(saveTasks).toHaveBeenNthCalledWith(2, [
+      initialTask,
+      {
+        ...appendedTask,
+        state: "queued",
+        updatedAt: 1_700_000_123_456
+      }
+    ]);
+
+    secondSave.resolve();
+    await updatePromise;
+
+    expect(store.getSnapshot()).toEqual([
+      initialTask,
+      {
+        ...appendedTask,
+        state: "queued",
+        updatedAt: 1_700_000_123_456
+      }
+    ]);
+  });
+
+  it("ignores id changes in update patches", async () => {
+    const initialTask = createTask();
+    const saveTasks = vi.fn(async () => undefined);
+    const storage = {
+      loadTasks: vi.fn(async () => [initialTask]),
+      saveTasks
+    };
+
+    const store = createTaskStore(storage);
+    await store.hydrate();
+
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
+
+    const patch = {
+      id: "task-hijacked",
+      state: "queued"
+    } as Partial<TaskRecord>;
+
+    await store.update(initialTask.id, patch);
+
+    expect(saveTasks).toHaveBeenCalledWith([
+      {
+        ...initialTask,
+        state: "queued",
+        updatedAt: 1_700_000_123_456
+      }
+    ]);
+    expect(store.getSnapshot()).toEqual([
+      {
+        ...initialTask,
+        state: "queued",
+        updatedAt: 1_700_000_123_456
+      }
+    ]);
   });
 });
