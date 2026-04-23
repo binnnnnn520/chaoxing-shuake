@@ -3,8 +3,6 @@
   "name": "MultiVideo Side Panel",
   "version": "0.1.0",
   "description": "Manage and play up to six video tasks from the Edge side panel.",
-  "permissions": ["storage", "tabs", "scripting", "sidePanel"],
-  "host_permissions": ["http://*/*", "https://*/*"],
   "background": {
     "service_worker": "service-worker.js",
     "type": "module"
@@ -12,13 +10,6 @@
   "side_panel": {
     "default_path": "sidepanel.html"
   },
-  "content_scripts": [
-    {
-      "matches": ["http://*/*", "https://*/*"],
-      "js": ["content-runner.js"],
-      "run_at": "document_idle"
-    }
-  ],
   "action": {
     "default_title": "MultiVideo Side Panel"
   }
