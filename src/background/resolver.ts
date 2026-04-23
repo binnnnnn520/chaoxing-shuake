@@ -11,7 +11,7 @@ export interface ResolvedTask {
   mediaUrl: string | null;
 }
 
-export function resolveTask(task: ResolverTask): ResolvedTask {
+export async function resolveTask(task: ResolverTask): Promise<ResolvedTask> {
   if (task.directMediaType) {
     return {
       effectiveMode: "inline",
