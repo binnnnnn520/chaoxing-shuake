@@ -14,4 +14,13 @@ describe("classifyUrl", () => {
       kind: "webpage"
     });
   });
+
+  it("keeps direct media classification when the url has a fragment", () => {
+    expect(classifyUrl("https://cdn.example.com/a/video.mp4#t=30")).toMatchObject(
+      {
+        kind: "direct-media",
+        directMediaType: "mp4"
+      }
+    );
+  });
 });

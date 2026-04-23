@@ -17,11 +17,17 @@ export function createDraftTasks(pastedText: string): TaskRecord[] {
       seen.add(line);
       return true;
     })
-    .map((line, index) => {
-      const classification = classifyUrl(line);
+    .flatMap((line) => {
+      let classification;
+
+      try {
+        classification = classifyUrl(line);
+      } catch {
+        return [];
+      }
 
       return {
-        id: `${now}-${index}`,
+        id: crypto.randomUUID(),
         sourceUrl: line,
         title: classification.domain,
         domain: classification.domain,
