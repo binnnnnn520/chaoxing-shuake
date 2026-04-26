@@ -99,6 +99,33 @@ export function createOrchestrator(deps: OrchestratorDeps) {
     return snapshot;
   }
 
+  async function restoreTasks(maxRestoreAttempts: number): Promise<SidePanelSnapshot> {
+    for (const task of deps.store.getSnapshot()) {
+      if (
+        task.state !== "playing_inline" &&
+        task.state !== "playing_background"
+      ) {
+        continue;
+      }
+
+      if (task.restoreAttempts >= maxRestoreAttempts) {
+        await deps.store.update(task.id, {
+          state: "error",
+          errorMessage: "Automatic recovery limit reached"
+        });
+        continue;
+      }
+
+      await deps.store.update(task.id, {
+        state: "queued",
+        restoreAttempts: task.restoreAttempts + 1
+      });
+      deps.scheduler.enqueue(task.id);
+    }
+
+    return getSnapshot();
+  }
+
   async function handleMessage(
     message: RuntimeCommandMessage
   ): Promise<SidePanelSnapshot | null> {
@@ -119,6 +146,7 @@ export function createOrchestrator(deps: OrchestratorDeps) {
     getSnapshot,
     addDraftTasks,
     startTasks,
+    restoreTasks,
     handleMessage
   };
 }
