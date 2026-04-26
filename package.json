@@ -12,6 +12,7 @@
     "fixtures": "node scripts/fixture-server.mjs"
   },
   "dependencies": {
+    "hls.js": "^1.5.17",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
