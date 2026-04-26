@@ -1,0 +1,17 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Webpage Video Fixture</title>
+  </head>
+  <body>
+    <h1>Webpage video fixture</h1>
+    <button id="start" type="button">Play</button>
+    <video controls src="/sample.mp4"></video>
+    <script>
+      document.getElementById("start").addEventListener("click", () => {
+        document.querySelector("video").play();
+      });
+    </script>
+  </body>
+</html>
