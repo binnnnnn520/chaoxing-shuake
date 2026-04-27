@@ -3,6 +3,7 @@ import { createOrchestrator } from "./orchestrator";
 import { loadTasks, saveTasks } from "./persistence";
 import { resolveTask } from "./resolver";
 import { createScheduler } from "./scheduler";
+import { configureSidePanelOpening } from "./side-panel";
 import { createTaskStore } from "./task-store";
 
 const scheduler = createScheduler(6);
@@ -15,6 +16,8 @@ const orchestrator = createOrchestrator({
   scheduler,
   resolver: resolveTask
 });
+
+void configureSidePanelOpening(chrome.sidePanel).catch(console.error);
 
 chrome.runtime.onInstalled.addListener(() => {
   void orchestrator.hydrate();

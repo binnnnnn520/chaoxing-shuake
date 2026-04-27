@@ -19,7 +19,7 @@ describe("workspace smoke test", () => {
     expect(screen.getByRole("main").firstElementChild).toBe(heading);
   });
 
-  it("keeps the bootstrap manifest scoped to the side-panel shell", () => {
+  it("declares the permissions required by the side panel runtime", () => {
     const manifest = JSON.parse(
       readFileSync(resolve(process.cwd(), "public/manifest.json"), "utf8")
     ) as {
@@ -28,7 +28,7 @@ describe("workspace smoke test", () => {
       content_scripts?: unknown[];
     };
 
-    expect(manifest.permissions ?? []).toEqual([]);
+    expect(manifest.permissions ?? []).toEqual(["sidePanel", "storage"]);
     expect(manifest.host_permissions).toBeUndefined();
     expect(manifest.content_scripts).toBeUndefined();
   });
