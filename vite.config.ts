@@ -2,12 +2,12 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import react from "@vitejs/plugin-react";
 import { defineConfig, type Plugin } from "vite";
+import { createSidepanelHtml } from "./src/build/sidepanel-html";
 
 function emitSidepanelHtml(): Plugin {
-  const sidepanelHtml = readFileSync(
-    resolve(__dirname, "src/sidepanel/index.html"),
-    "utf8"
-  ).replace("./main.tsx", "./assets/sidepanel.js");
+  const sidepanelHtml = createSidepanelHtml(
+    readFileSync(resolve(__dirname, "src/sidepanel/index.html"), "utf8")
+  );
 
   return {
     name: "emit-sidepanel-html",

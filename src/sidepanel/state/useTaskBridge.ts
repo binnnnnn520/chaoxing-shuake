@@ -4,6 +4,7 @@ import type { RuntimeCommandMessage, SidePanelSnapshot } from "../../shared/mess
 import { createDraftTasks } from "../../shared/task-factory";
 
 const emptySnapshot: SidePanelSnapshot = { tasks: [] };
+const SNAPSHOT_POLL_INTERVAL_MS = 1000;
 
 function getRuntime() {
   if (typeof chrome === "undefined" || !chrome.runtime?.sendMessage) {
@@ -55,14 +56,25 @@ export function useTaskBridge() {
   useEffect(() => {
     let isMounted = true;
 
-    void sendMessage({ type: "tasks/snapshot-request" }).then((nextSnapshot) => {
-      if (isMounted && nextSnapshot) {
-        setSnapshot(nextSnapshot);
-      }
-    });
+    function refreshSnapshot() {
+      void sendMessage({ type: "tasks/snapshot-request" }).then(
+        (nextSnapshot) => {
+          if (isMounted && nextSnapshot) {
+            setSnapshot(nextSnapshot);
+          }
+        }
+      );
+    }
+
+    refreshSnapshot();
+    const intervalId = window.setInterval(
+      refreshSnapshot,
+      SNAPSHOT_POLL_INTERVAL_MS
+    );
 
     return () => {
       isMounted = false;
+      window.clearInterval(intervalId);
     };
   }, []);
 

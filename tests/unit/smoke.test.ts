@@ -28,8 +28,13 @@ describe("workspace smoke test", () => {
       content_scripts?: unknown[];
     };
 
-    expect(manifest.permissions ?? []).toEqual(["sidePanel", "storage"]);
-    expect(manifest.host_permissions).toBeUndefined();
+    expect(manifest.permissions ?? []).toEqual([
+      "sidePanel",
+      "storage",
+      "tabs",
+      "scripting"
+    ]);
+    expect(manifest.host_permissions).toEqual(["<all_urls>"]);
     expect(manifest.content_scripts).toBeUndefined();
   });
 });

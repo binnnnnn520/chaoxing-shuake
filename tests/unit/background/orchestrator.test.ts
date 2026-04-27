@@ -209,4 +209,54 @@ describe("createOrchestrator", () => {
       ]
     });
   });
+
+  it("starts webpage tasks through the background runner and records confirmed playback", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_123_456);
+
+    const backgroundTask = createTask({
+      directMediaType: null,
+      sourceUrl: "https://site.test/watch",
+      domain: "site.test"
+    });
+    const store = createStore([backgroundTask]);
+    const scheduler = {
+      enqueue: vi.fn(),
+      claimNextBatch: vi.fn().mockReturnValue([backgroundTask.id]),
+      release: vi.fn()
+    };
+    const backgroundRunner = {
+      start: vi.fn().mockResolvedValue({
+        tabId: 700,
+        frameId: 2,
+        lastHeartbeatAt: 1_700_000_123_999
+      })
+    };
+    const orchestrator = createOrchestrator({
+      store,
+      scheduler,
+      resolver: vi.fn().mockResolvedValue({
+        effectiveMode: "background",
+        state: "ready_background",
+        mediaUrl: null
+      }),
+      backgroundRunner
+    });
+
+    await orchestrator.handleMessage({
+      type: "tasks/start",
+      payload: { taskIds: [backgroundTask.id] }
+    });
+    await flushMicrotasks();
+
+    expect(backgroundRunner.start).toHaveBeenCalledWith(
+      expect.objectContaining({ id: backgroundTask.id })
+    );
+    expect(store.update).toHaveBeenLastCalledWith(backgroundTask.id, {
+      state: "playing_background",
+      effectiveMode: "background",
+      tabId: 700,
+      lastHeartbeatAt: 1_700_000_123_999,
+      errorMessage: null
+    });
+  });
 });

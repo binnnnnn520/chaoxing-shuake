@@ -20,10 +20,18 @@ type OrchestratorScheduler = {
   release(taskId: string): void;
 };
 
+type BackgroundRunner = {
+  start(task: TaskRecord): Promise<{
+    tabId: number;
+    lastHeartbeatAt: number;
+  }>;
+};
+
 type OrchestratorDeps = {
   store: OrchestratorStore;
   scheduler: OrchestratorScheduler;
   resolver(task: Pick<TaskRecord, "sourceUrl" | "directMediaType">): Promise<ResolvedTask>;
+  backgroundRunner?: BackgroundRunner;
 };
 
 function createSnapshot(tasks: TaskRecord[]): SidePanelSnapshot {
@@ -58,6 +66,20 @@ export function createOrchestrator(deps: OrchestratorDeps) {
 
     try {
       const resolved = await deps.resolver(task);
+
+      if (resolved.effectiveMode === "background" && deps.backgroundRunner) {
+        const started = await deps.backgroundRunner.start(task);
+
+        await deps.store.update(taskId, {
+          state: "playing_background",
+          effectiveMode: "background",
+          tabId: started.tabId,
+          lastHeartbeatAt: started.lastHeartbeatAt,
+          errorMessage: null
+        });
+        return;
+      }
+
       await deps.store.update(taskId, {
         state: resolved.state,
         effectiveMode: resolved.effectiveMode,

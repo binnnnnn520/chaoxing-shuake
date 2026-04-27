@@ -28,7 +28,8 @@ describe("BackgroundTaskCard", () => {
     render(<BackgroundTaskCard task={backgroundTask} />);
 
     expect(screen.getByText(backgroundTask.title)).toBeTruthy();
-    expect(screen.getByText(/background mode/i)).toBeTruthy();
+    expect(screen.getByText(/hidden page playback/i)).toBeTruthy();
+    expect(screen.getByText(/playback confirmed/i)).toBeTruthy();
     expect(screen.getByText("playing background")).toBeTruthy();
     expect(screen.getByText(backgroundTask.sourceUrl)).toBeTruthy();
   });

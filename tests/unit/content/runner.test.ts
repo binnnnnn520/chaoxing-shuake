@@ -120,4 +120,32 @@ describe("content runner", () => {
     expect(play).toHaveBeenCalledTimes(1);
     expect(sendResponse).toHaveBeenCalledWith({ ok: true });
   });
+
+  it("reports heartbeat status for the current video", async () => {
+    const runner = await loadRunner();
+    const handler = (runner as { createPageMessageHandler: (doc: Document) => PageMessageHandler })
+      .createPageMessageHandler(document);
+    const video = document.createElement("video");
+    const sendResponse = vi.fn();
+
+    Object.defineProperty(video, "currentTime", {
+      configurable: true,
+      value: 42
+    });
+    Object.defineProperty(video, "paused", {
+      configurable: true,
+      value: false
+    });
+    Object.defineProperty(video, "ended", {
+      configurable: true,
+      value: false
+    });
+    document.body.appendChild(video);
+
+    expect(handler({ type: "page/status" }, {} as chrome.runtime.MessageSender, sendResponse)).toBeUndefined();
+    expect(sendResponse).toHaveBeenCalledWith({
+      ok: true,
+      heartbeat: { currentTime: 42, paused: false, ended: false }
+    });
+  });
 });

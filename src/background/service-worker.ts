@@ -1,4 +1,6 @@
 import type { RuntimeCommandMessage } from "../shared/messages";
+import { createBackgroundPageRunner } from "./background-page-runner";
+import { createHiddenPageManager } from "./hidden-page-manager";
 import { createOrchestrator } from "./orchestrator";
 import { loadTasks, saveTasks } from "./persistence";
 import { resolveTask } from "./resolver";
@@ -14,7 +16,12 @@ const store = createTaskStore({
 const orchestrator = createOrchestrator({
   store,
   scheduler,
-  resolver: resolveTask
+  resolver: resolveTask,
+  backgroundRunner: createBackgroundPageRunner({
+    hiddenPages: createHiddenPageManager(chrome.tabs),
+    scripting: chrome.scripting,
+    tabs: chrome.tabs
+  })
 });
 
 void configureSidePanelOpening(chrome.sidePanel).catch(console.error);

@@ -1,5 +1,5 @@
 import React from "react";
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { App } from "../../../src/sidepanel/App";
 import type { TaskRecord } from "../../../src/shared/contracts";
@@ -58,6 +58,7 @@ describe("runtime task routing", () => {
   afterEach(() => {
     cleanup();
     setChrome(originalChrome);
+    vi.useRealTimers();
   });
 
   it("keeps starting tasks visible in the running section", async () => {
@@ -115,6 +116,53 @@ describe("runtime task routing", () => {
       expect(screen.getByText("Inline card: Inline task")).toBeTruthy();
     });
     expect(screen.getByText("Background task")).toBeTruthy();
-    expect(screen.getByText(/background mode/i)).toBeTruthy();
+    expect(screen.getByText(/hidden page playback/i)).toBeTruthy();
+  });
+
+  it("polls the runtime snapshot so async playback confirmation becomes visible", async () => {
+    vi.useFakeTimers();
+
+    let tasks = [
+      createTask({
+        id: "background",
+        title: "Background task",
+        state: "starting",
+        effectiveMode: "background",
+        lastHeartbeatAt: null
+      })
+    ];
+    const sendMessage = vi.fn(async (): Promise<SidePanelSnapshot> => ({
+      tasks
+    }));
+
+    setChrome({
+      runtime: { sendMessage }
+    } as unknown as typeof chrome);
+
+    render(React.createElement(App));
+
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(screen.getByText("starting")).toBeTruthy();
+
+    tasks = [
+      createTask({
+        id: "background",
+        title: "Background task",
+        state: "playing_background",
+        effectiveMode: "background",
+        tabId: 99,
+        lastHeartbeatAt: 1_700_000_123_456
+      })
+    ];
+
+    await act(async () => {
+      vi.advanceTimersByTime(1000);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("playing background")).toBeTruthy();
+    expect(screen.getByText(/playback confirmed/i)).toBeTruthy();
   });
 });

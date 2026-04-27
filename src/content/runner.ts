@@ -10,13 +10,14 @@ type PageCommandMessage =
   | { type: "page/play" }
   | { type: "page/pause" }
   | { type: "page/stop" }
+  | { type: "page/status" }
   | {
       type: "page/set-audio";
       payload: PageAudioPayload;
     };
 
 type PageCommandResponse =
-  | { ok: true }
+  | { ok: true; heartbeat?: { currentTime: number; paused: boolean; ended: boolean } }
   | {
       ok: false;
       reason: "unsupported" | "invalid-payload" | "failed";
@@ -40,6 +41,7 @@ function isPageCommandMessage(message: unknown): message is PageCommandMessage {
     message.type === "page/play" ||
     message.type === "page/pause" ||
     message.type === "page/stop" ||
+    message.type === "page/status" ||
     message.type === "page/set-audio"
   );
 }
@@ -108,6 +110,12 @@ export function createPageMessageHandler(doc: Document): PageMessageHandler {
         return runAsyncCommand(() => supportedAdapter.pause(), sendResponse);
       case "page/stop":
         return runAsyncCommand(() => supportedAdapter.stop(), sendResponse);
+      case "page/status":
+        sendResponse({
+          ok: true,
+          heartbeat: supportedAdapter.getHeartbeat()
+        } satisfies PageCommandResponse);
+        return undefined;
       case "page/set-audio":
         if (!isPageAudioPayload(message.payload)) {
           sendResponse({
