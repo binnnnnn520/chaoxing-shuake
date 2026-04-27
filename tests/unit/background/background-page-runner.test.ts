@@ -23,6 +23,91 @@ const task = {
 } satisfies TaskRecord;
 
 describe("createBackgroundPageRunner", () => {
+  it("starts playback in the recorded website tab before using fallback pages", async () => {
+    const scripting = {
+      executeScript: vi
+        .fn()
+        .mockResolvedValueOnce([{ frameId: 0 }])
+        .mockResolvedValueOnce([{ frameId: 0, result: true }])
+    };
+    const tabs = {
+      create: vi.fn(),
+      query: vi.fn(),
+      sendMessage: vi
+        .fn()
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValueOnce({ ok: true })
+        .mockResolvedValueOnce({
+          ok: true,
+          heartbeat: { currentTime: 8, paused: false, ended: false }
+        })
+    };
+    const runner = createBackgroundPageRunner({
+      hiddenPages: {
+        open: vi.fn()
+      },
+      scripting,
+      tabs,
+      now: () => 1_700_000_123_000
+    });
+
+    await expect(
+      runner.startSource({
+        ...task,
+        sourceTabId: 33
+      })
+    ).resolves.toEqual({
+      tabId: 33,
+      frameId: 0,
+      heartbeat: { currentTime: 8, paused: false, ended: false },
+      lastHeartbeatAt: 1_700_000_123_000
+    });
+
+    expect(tabs.create).not.toHaveBeenCalled();
+    expect(scripting.executeScript).toHaveBeenNthCalledWith(1, {
+      target: { tabId: 33, allFrames: true },
+      files: ["content-runner.js"]
+    });
+    expect(tabs.sendMessage).toHaveBeenNthCalledWith(
+      2,
+      33,
+      { type: "page/play" },
+      { frameId: 0 }
+    );
+  });
+
+  it("refreshes a known website tab heartbeat without restarting playback", async () => {
+    const tabs = {
+      create: vi.fn(),
+      query: vi.fn(),
+      sendMessage: vi.fn().mockResolvedValue({
+        ok: true,
+        heartbeat: { currentTime: 13, paused: false, ended: false }
+      })
+    };
+    const runner = createBackgroundPageRunner({
+      hiddenPages: {
+        open: vi.fn()
+      },
+      scripting: {
+        executeScript: vi.fn()
+      },
+      tabs,
+      now: () => 1_700_000_124_000
+    });
+
+    await expect(runner.refresh(33, 0)).resolves.toEqual({
+      heartbeat: { currentTime: 13, paused: false, ended: false },
+      lastHeartbeatAt: 1_700_000_124_000
+    });
+
+    expect(tabs.sendMessage).toHaveBeenCalledWith(
+      33,
+      { type: "page/status" },
+      { frameId: 0 }
+    );
+  });
+
   it("opens a hidden tab, injects the runner into the video frame, and starts playback", async () => {
     const hiddenPages = {
       open: vi.fn().mockResolvedValue(77)
@@ -56,6 +141,7 @@ describe("createBackgroundPageRunner", () => {
     await expect(runner.start(task)).resolves.toEqual({
       tabId: 77,
       frameId: 4,
+      heartbeat: { currentTime: 12, paused: false, ended: false },
       lastHeartbeatAt: 1_700_000_123_456
     });
 

@@ -21,7 +21,7 @@ function createTask(overrides: Partial<TaskRecord> = {}): TaskRecord {
     lastHeartbeatAt: null,
     createdAt: 1_700_000_000_000,
     updatedAt: 1_700_000_000_000,
-    restoreAttempts: 0,
+  restoreAttempts: 0,
     ...overrides
   };
 }
@@ -225,10 +225,21 @@ describe("createOrchestrator", () => {
       release: vi.fn()
     };
     const backgroundRunner = {
+      startSource: vi.fn().mockResolvedValue({
+        tabId: 33,
+        frameId: 4,
+        heartbeat: { currentTime: 8, paused: false, ended: false },
+        lastHeartbeatAt: 1_700_000_123_888
+      }),
       start: vi.fn().mockResolvedValue({
         tabId: 700,
         frameId: 2,
+        heartbeat: { currentTime: 9, paused: false, ended: false },
         lastHeartbeatAt: 1_700_000_123_999
+      }),
+      refresh: vi.fn().mockResolvedValue({
+        heartbeat: { currentTime: 12, paused: false, ended: false },
+        lastHeartbeatAt: 1_700_000_124_999
       })
     };
     const orchestrator = createOrchestrator({
@@ -248,15 +259,106 @@ describe("createOrchestrator", () => {
     });
     await flushMicrotasks();
 
-    expect(backgroundRunner.start).toHaveBeenCalledWith(
+    expect(backgroundRunner.startSource).toHaveBeenCalledWith(
       expect.objectContaining({ id: backgroundTask.id })
     );
+    expect(backgroundRunner.start).not.toHaveBeenCalled();
     expect(store.update).toHaveBeenLastCalledWith(backgroundTask.id, {
       state: "playing_background",
       effectiveMode: "background",
-      tabId: 700,
-      lastHeartbeatAt: 1_700_000_123_999,
+      sourceTabId: 33,
+      sourceFrameId: 4,
+      sourceCurrentTime: 8,
+      sourcePaused: false,
+      sourceEnded: false,
+      sourceLastHeartbeatAt: 1_700_000_123_888,
+      sourcePlaybackState: "waiting",
+      sourceErrorMessage: null,
       errorMessage: null
     });
+  });
+
+  it("refreshes website page progress during snapshot requests", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_124_456);
+
+    const runningTask = createTask({
+      state: "playing_background",
+      effectiveMode: "background",
+      sourceTabId: 33,
+      sourceFrameId: 4,
+      sourceCurrentTime: 8,
+      sourcePaused: false,
+      sourceEnded: false,
+      sourceLastHeartbeatAt: 1_700_000_123_888,
+      sourcePlaybackState: "waiting"
+    });
+    const store = createStore([runningTask]);
+    const backgroundRunner = {
+      startSource: vi.fn(),
+      start: vi.fn(),
+      refresh: vi.fn().mockResolvedValue({
+        heartbeat: { currentTime: 12, paused: false, ended: false },
+        lastHeartbeatAt: 1_700_000_124_999
+      })
+    };
+    const orchestrator = createOrchestrator({
+      store,
+      scheduler: {
+        enqueue: vi.fn(),
+        claimNextBatch: vi.fn().mockReturnValue([]),
+        release: vi.fn()
+      },
+      resolver: vi.fn(),
+      backgroundRunner
+    });
+
+    await orchestrator.handleMessage({ type: "tasks/snapshot-request" });
+
+    expect(backgroundRunner.refresh).toHaveBeenCalledWith(33, 4);
+    expect(store.update).toHaveBeenLastCalledWith(runningTask.id, {
+      sourceCurrentTime: 12,
+      sourcePaused: false,
+      sourceEnded: false,
+      sourceLastHeartbeatAt: 1_700_000_124_999,
+      sourcePlaybackState: "advancing",
+      sourceErrorMessage: null
+    });
+  });
+
+  it("adds the active website tab as a draft task for synchronized playback", async () => {
+    vi.spyOn(Date, "now").mockReturnValue(1_700_000_555_000);
+    vi.stubGlobal("crypto", {
+      randomUUID: () => "task-current-tab"
+    });
+
+    const store = createStore([]);
+    const orchestrator = createOrchestrator({
+      store,
+      scheduler: {
+        enqueue: vi.fn(),
+        claimNextBatch: vi.fn().mockReturnValue([]),
+        release: vi.fn()
+      },
+      resolver: vi.fn(),
+      currentTabProvider: {
+        getCurrentTab: vi.fn().mockResolvedValue({
+          id: 55,
+          url: "https://site.test/watch",
+          title: "Course video"
+        })
+      }
+    });
+
+    await orchestrator.handleMessage({ type: "tasks/add-current-tab" });
+
+    expect(store.addMany).toHaveBeenCalledWith([
+      expect.objectContaining({
+        id: "task-current-tab",
+        sourceUrl: "https://site.test/watch",
+        title: "Course video",
+        sourceTabId: 55,
+        state: "draft"
+      })
+    ]);
   });
 });

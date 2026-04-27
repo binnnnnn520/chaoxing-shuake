@@ -21,7 +21,17 @@ const orchestrator = createOrchestrator({
     hiddenPages: createHiddenPageManager(chrome.tabs),
     scripting: chrome.scripting,
     tabs: chrome.tabs
-  })
+  }),
+  currentTabProvider: {
+    async getCurrentTab() {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true
+      });
+
+      return tab ?? null;
+    }
+  }
 });
 
 void configureSidePanelOpening(chrome.sidePanel).catch(console.error);
@@ -33,6 +43,7 @@ chrome.runtime.onInstalled.addListener(() => {
 chrome.runtime.onMessage.addListener((message: RuntimeCommandMessage, _sender, sendResponse) => {
   if (
     message.type !== "tasks/add" &&
+    message.type !== "tasks/add-current-tab" &&
     message.type !== "tasks/start" &&
     message.type !== "tasks/snapshot-request"
   ) {

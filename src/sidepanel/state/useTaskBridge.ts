@@ -97,6 +97,16 @@ export function useTaskBridge() {
     );
   }
 
+  async function addCurrentPage() {
+    const nextSnapshot = await sendMessage({
+      type: "tasks/add-current-tab"
+    });
+
+    if (nextSnapshot) {
+      setSnapshot(nextSnapshot);
+    }
+  }
+
   async function startTask(taskId: string) {
     const nextSnapshot = await sendMessage({
       type: "tasks/start",
@@ -121,6 +131,7 @@ export function useTaskBridge() {
   return {
     tasks: snapshot.tasks,
     addDrafts,
+    addCurrentPage,
     startTask
   };
 }

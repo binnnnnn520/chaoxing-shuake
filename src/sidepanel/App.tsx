@@ -7,7 +7,7 @@ import { RuntimeTaskCard } from "./components/RuntimeTaskCard";
 import { useTaskBridge } from "./state/useTaskBridge";
 
 export function App() {
-  const { tasks, addDrafts, startTask } = useTaskBridge();
+  const { tasks, addDrafts, addCurrentPage, startTask } = useTaskBridge();
   const pendingTasks = tasks.filter(
     (task) => task.state === "draft" || task.state === "queued"
   );
@@ -27,7 +27,7 @@ export function App() {
     <main>
       <h1>MultiVideo Side Panel</h1>
       <div className="sidepanel-shell">
-        <PasteForm onSubmit={addDrafts} />
+        <PasteForm onSubmit={addDrafts} onAddCurrentPage={addCurrentPage} />
         <DraftTaskList tasks={pendingTasks} onStart={startTask} />
         <section className="panel-card" aria-label="Running tasks">
           <h2>Running</h2>

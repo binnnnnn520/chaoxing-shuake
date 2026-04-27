@@ -23,6 +23,9 @@ export type RuntimeCommandMessage =
       };
     }
   | {
+      type: "tasks/add-current-tab";
+    }
+  | {
       type: "tasks/start";
       payload: TaskSelectionPayload;
     }

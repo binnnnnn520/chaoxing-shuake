@@ -2,9 +2,10 @@ import { useState } from "react";
 
 interface PasteFormProps {
   onSubmit(rawValue: string): void | Promise<void>;
+  onAddCurrentPage(): void | Promise<void>;
 }
 
-export function PasteForm({ onSubmit }: PasteFormProps) {
+export function PasteForm({ onSubmit, onAddCurrentPage }: PasteFormProps) {
   const [value, setValue] = useState("");
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -33,6 +34,13 @@ export function PasteForm({ onSubmit }: PasteFormProps) {
           placeholder="Paste one video link per line"
         />
         <div className="panel-actions">
+          <button
+            className="panel-button panel-button-secondary"
+            type="button"
+            onClick={() => void onAddCurrentPage()}
+          >
+            Add current page
+          </button>
           <button className="panel-button" type="submit" disabled={!value.trim()}>
             Add to pending list
           </button>

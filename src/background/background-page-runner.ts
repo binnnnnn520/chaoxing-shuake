@@ -13,6 +13,8 @@ type ScriptingApi = {
 };
 
 type TabsApi = {
+  create?(createProperties: chrome.tabs.CreateProperties): Promise<chrome.tabs.Tab>;
+  query?(queryInfo: chrome.tabs.QueryInfo): Promise<chrome.tabs.Tab[]>;
   sendMessage(
     tabId: number,
     message: unknown,
@@ -61,6 +63,13 @@ export function createBackgroundPageRunner({
   tabs: TabsApi;
   now?: () => number;
 }) {
+  async function injectRunner(tabId: number) {
+    await scripting.executeScript({
+      target: { tabId, allFrames: true },
+      files: ["content-runner.js"]
+    });
+  }
+
   async function findVideoFrame(tabId: number): Promise<number> {
     const results = await scripting.executeScript({
       target: { tabId, allFrames: true },
@@ -75,51 +84,111 @@ export function createBackgroundPageRunner({
     return match.frameId;
   }
 
+  async function confirmStatus(tabId: number, frameId: number) {
+    const statusResponse = assertPageCommandSucceeded(
+      await tabs.sendMessage(
+        tabId,
+        { type: "page/status" },
+        { frameId }
+      ),
+      "Failed to confirm background page playback"
+    );
+
+    if (!isPageHeartbeat(statusResponse.heartbeat)) {
+      throw new Error("Failed to confirm background page playback");
+    }
+
+    return {
+      heartbeat: statusResponse.heartbeat,
+      lastHeartbeatAt: now()
+    };
+  }
+
+  async function configureAndPlay(task: TaskRecord, tabId: number, frameId: number) {
+    const options = { frameId };
+
+    assertPageCommandSucceeded(
+      await tabs.sendMessage(
+        tabId,
+        {
+          type: "page/set-audio",
+          payload: {
+            muted: task.muted,
+            volume: task.volume,
+            rate: task.rate
+          }
+        },
+        options
+      ),
+      "Failed to configure background page audio"
+    );
+    assertPageCommandSucceeded(
+      await tabs.sendMessage(tabId, { type: "page/play" }, options),
+      "Failed to start background page playback"
+    );
+
+    return confirmStatus(tabId, frameId);
+  }
+
+  async function startInTab(task: TaskRecord, tabId: number) {
+    await injectRunner(tabId);
+
+    const frameId = await findVideoFrame(tabId);
+    const status = await configureAndPlay(task, tabId, frameId);
+
+    return {
+      tabId,
+      frameId,
+      ...status
+    };
+  }
+
+  async function findExistingTab(url: string): Promise<number | null> {
+    if (!tabs.query) {
+      return null;
+    }
+
+    const candidates = await tabs.query({});
+    const match = candidates.find((tab) => tab.url === url);
+
+    return typeof match?.id === "number" ? match.id : null;
+  }
+
+  async function createWebsiteTab(url: string): Promise<number> {
+    if (!tabs.create) {
+      throw new Error("No website tab is available for synchronized playback");
+    }
+
+    const tab = await tabs.create({
+      url,
+      active: false
+    });
+
+    if (typeof tab.id !== "number") {
+      throw new Error("Website tab is missing an id");
+    }
+
+    return tab.id;
+  }
+
   return {
+    async startSource(task: TaskRecord) {
+      const tabId =
+        task.sourceTabId ??
+        (await findExistingTab(task.sourceUrl)) ??
+        (await createWebsiteTab(task.sourceUrl));
+
+      return startInTab(task, tabId);
+    },
+
     async start(task: TaskRecord) {
       const tabId = await hiddenPages.open(task.sourceUrl, task.id);
 
-      await scripting.executeScript({
-        target: { tabId, allFrames: true },
-        files: ["content-runner.js"]
-      });
+      return startInTab(task, tabId);
+    },
 
-      const frameId = await findVideoFrame(tabId);
-      const options = { frameId };
-
-      assertPageCommandSucceeded(
-        await tabs.sendMessage(
-          tabId,
-          {
-            type: "page/set-audio",
-            payload: {
-              muted: task.muted,
-              volume: task.volume,
-              rate: task.rate
-            }
-          },
-          options
-        ),
-        "Failed to configure background page audio"
-      );
-      assertPageCommandSucceeded(
-        await tabs.sendMessage(tabId, { type: "page/play" }, options),
-        "Failed to start background page playback"
-      );
-      const statusResponse = assertPageCommandSucceeded(
-        await tabs.sendMessage(tabId, { type: "page/status" }, options),
-        "Failed to confirm background page playback"
-      );
-
-      if (!isPageHeartbeat(statusResponse.heartbeat)) {
-        throw new Error("Failed to confirm background page playback");
-      }
-
-      return {
-        tabId,
-        frameId,
-        lastHeartbeatAt: now()
-      };
+    async refresh(tabId: number, frameId: number) {
+      return confirmStatus(tabId, frameId);
     }
   };
 }

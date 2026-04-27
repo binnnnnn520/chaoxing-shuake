@@ -18,6 +18,13 @@ const backgroundTask = {
   errorMessage: null,
   tabId: 42,
   lastHeartbeatAt: 1_700_000_000_000,
+  sourceTabId: 33,
+  sourceFrameId: 4,
+  sourceCurrentTime: 12.4,
+  sourcePaused: false,
+  sourceEnded: false,
+  sourceLastHeartbeatAt: 1_700_000_000_500,
+  sourcePlaybackState: "advancing",
   createdAt: 1_700_000_000_000,
   updatedAt: 1_700_000_000_000,
   restoreAttempts: 0
@@ -30,6 +37,8 @@ describe("BackgroundTaskCard", () => {
     expect(screen.getByText(backgroundTask.title)).toBeTruthy();
     expect(screen.getByText(/hidden page playback/i)).toBeTruthy();
     expect(screen.getByText(/playback confirmed/i)).toBeTruthy();
+    expect(screen.getByText(/website page playing at 00:12/i)).toBeTruthy();
+    expect(screen.getByText("Website Tab #33")).toBeTruthy();
     expect(screen.getByText("playing background")).toBeTruthy();
     expect(screen.getByText(backgroundTask.sourceUrl)).toBeTruthy();
   });

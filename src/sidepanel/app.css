@@ -44,6 +44,7 @@ h1 {
 
 .panel-actions {
   display: flex;
+  gap: 8px;
   justify-content: flex-end;
   margin-top: 12px;
 }
@@ -62,6 +63,11 @@ h1 {
 .panel-button:disabled {
   background: #9badcf;
   cursor: not-allowed;
+}
+
+.panel-button-secondary {
+  background: #edf3ff;
+  color: #1f3f82;
 }
 
 .task-list {

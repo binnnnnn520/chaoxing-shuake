@@ -162,4 +162,56 @@ describe("side panel paste flow", () => {
     expect(sendMessage).toHaveBeenCalledWith({ type: "tasks/snapshot-request" });
     expect(sendMessage).toHaveBeenCalledTimes(3);
   });
+
+  it("lets the user add the currently open website page for synchronized playback", async () => {
+    const sendMessage = vi.fn(
+      async (message: RuntimeCommandMessage): Promise<SidePanelSnapshot> => {
+        if (message.type === "tasks/add-current-tab") {
+          return {
+            tasks: [
+              {
+                id: "current-tab-task",
+                sourceUrl: "https://site.test/watch",
+                title: "Course video",
+                domain: "site.test",
+                state: "draft",
+                requestedMode: null,
+                effectiveMode: null,
+                directMediaType: null,
+                muted: true,
+                volume: 1,
+                rate: 1,
+                errorMessage: null,
+                tabId: null,
+                lastHeartbeatAt: null,
+                sourceTabId: 55,
+                createdAt: 1,
+                updatedAt: 1,
+                restoreAttempts: 0
+              }
+            ]
+          };
+        }
+
+        return { tasks: [] };
+      }
+    );
+
+    setChrome({
+      runtime: {
+        sendMessage
+      }
+    } as unknown as typeof chrome);
+
+    render(React.createElement(App));
+
+    fireEvent.click(
+      await screen.findByRole("button", { name: /add current page/i })
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText("https://site.test/watch")).toBeTruthy();
+    });
+    expect(sendMessage).toHaveBeenCalledWith({ type: "tasks/add-current-tab" });
+  });
 });
