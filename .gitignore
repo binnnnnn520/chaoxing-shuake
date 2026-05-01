@@ -1,2 +1,4 @@
 .worktrees/
 .omx/
+node_modules/
+dist/

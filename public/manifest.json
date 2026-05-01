@@ -1,0 +1,26 @@
+{
+  "manifest_version": 3,
+  "name": "学习通自动刷课",
+  "version": "0.1.0",
+  "description": "自动扫描学习通课程列表，并发刷多个视频任务",
+  "permissions": ["storage", "tabs", "scripting", "sidePanel", "cookies"],
+  "host_permissions": ["https://*.chaoxing.com/*"],
+  "background": {
+    "service_worker": "service-worker.js",
+    "type": "module"
+  },
+  "side_panel": {
+    "default_path": "sidepanel.html"
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://*.chaoxing.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_title": "学习通刷课"
+  }
+}

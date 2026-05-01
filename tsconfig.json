@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "lib": ["ES2022", "DOM"],
+    "jsx": "react-jsx",
+    "moduleResolution": "Bundler",
+    "strict": true,
+    "noEmit": true,
+    "types": ["chrome", "vitest/globals"],
+    "baseUrl": "."
+  },
+  "include": ["src", "tests", "vite.config.ts", "vitest.config.ts"]
+}
